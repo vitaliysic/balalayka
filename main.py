@@ -2,7 +2,11 @@ import requests
 import random
 import math
 
+from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc.contrib.media import MediaPlayer, MediaRelay
 
+
+domain = 'omegle.com'
 serverList = ["front1", "front2", "front3", "front4", "front5", "front6", "front7", "front8", "front9", "front10",
               "front11", "front12", "front13", "front14", "front15", "front16", "front17", "front18", "front19",
               "front20", "front21", "front22", "front23", "front24", "front25", "front26", "front27", "front28",
@@ -27,8 +31,20 @@ def get_origin():
     return f'https://{serverList[random.randint(0, len(serverList) - 1)]}.{domain}'
 
 
+def event_dispatch(events):
+    for event in events:
+        exit()
+
+
 if __name__ == '__main__':
-    domain = 'omegle.com'
+
+    proxies = {
+        'https': 'https://45.167.253.129:999',
+    }
+
+    s = requests.Session()
+    s.proxies = proxies
+    
     origin = get_origin()
 
     headers = {
@@ -42,42 +58,109 @@ if __name__ == '__main__':
         'randid': randId
     }
     url = f'{origin}/status'
-    r = requests.get(url=url, headers=headers, params=params)
+    r = s.get(url=url, headers=headers, params=params)
     r = r.json()
 
-    print(r)
+    if len(r) == 0:
+        print('status fail')
+        exit()
 
     serverList = r['servers']
     origin = get_origin()
 
-    params = {
-        'caps': 'recaptha2,t',
-        'firstevents': '1',
-        'spid': '',
-        'randid': randId,
-        'group': 'unmon',
-        'lang': 'en',
-        'camera': 'Camera',
-        'webrtc': '1'
-    }
-    url = f'{origin}/start'
-    r = requests.post(url=url, headers=headers, params=params)
-    r = r.json()
+    while True:
+        params = {
+            'caps': 'recaptha2,t',
+            'firstevents': '1',
+            'spid': '',
+            'randid': randId,
+            'group': 'unmon',
+            'lang': 'en',
+            'camera': 'Camera',
+            'webrtc': '1'
+        }
+        url = f'{origin}/start'
+        r = s.post(url=url, headers=headers, params=params)
+        r = r.json()
 
-    print(r)
+        if len(r) == 0:
+            print('start fail')
+            exit()
 
-    clientId = r['clientID']
+        clientId = r['clientID']
 
-    data = {
-        'id': clientId
-    }
-    url = f'{origin}/events'
-    r = requests.post(url=url, headers=headers, data=data)
-    r = r.json()
+        data = {
+            'id': clientId
+        }
+        url = f'{origin}/events'
 
-    print(r)
+        while True:
+            r = s.post(url=url, headers=headers, data=data)
+            r = r.json()
 
-    r = requests.post(url=url, headers=headers, data=data)
-    r = r.json()
+            print(r)
 
-    print(r)
+            if r is None or len(r) > 0 and r[0][0] == 'gotMessage' and 'OMEGLE' in r[0][1]:
+                url = f'{origin}/disconnect'
+                s.post(url=url, headers=headers, data=data)
+                break
+            elif 
+        
+        if r is None or not 'rtcpeerdescription' in r:
+            continue
+
+        index = r.index('rtcpeerdescription')
+
+        offer = RTCSessionDescription(sdp=r[index]["sdp"], type=r[index]["type"])
+
+        pc = RTCPeerConnection()
+        
+        pc.setRemoteDescription(offer)
+
+        player = MediaPlayer('v.mp4')
+
+        for t in pc.getTransceivers():
+            print("")
+            print("")
+            print("")
+            print(t)
+            print("")
+            print("")
+            print("")
+            if t.kind == "audio":
+                pc.addTrack(player.audio)
+            elif t.kind == "video":
+                pc.addTrack(player.video)
+        
+        answer = pc.createAnswer()
+        pc.setLocalDescription(answer)
+
+        if not 'icecandidate' in r:
+            while not 'icecandidate' in r:
+                url = f'{origin}/events'
+                r = s.post(url=url, headers=headers, data=data)
+                r = r.json()
+                print(r)
+
+                if r is None:
+                    url = f'{origin}/disconnect'
+                    s.post(url=url, headers=headers, data=data)
+                    break
+
+        if not 'icecandidate' in r:
+            continue
+
+        url = f'{origin}/rtcpeerdescription'
+        data = {
+            'desc': '{"type":"' + pc.localDescription.type + ',"sdp":"' + pc.localDescription.sdp + '"}',
+            'id': randId
+        }
+        r = s.post(url=url, headers=headers, data=data)
+        r = r.text
+
+        print(r)
+
+        url = f'{origin}/icecandidate'
+
+        
+        
