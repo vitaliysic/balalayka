@@ -1,8 +1,9 @@
 import requests
 import random
 import math
+import time
 
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 
 domain = 'omegle.com'
@@ -39,6 +40,8 @@ state = {
     'randId': '',
     'clientId': '',
     'rtcpeerdescription': '',
+    'rtclocaldescription': '',
+    'icecandidate': [],
     'messages': [],
     'pc': None
 }
@@ -64,12 +67,15 @@ def events_dispatch(new_events):
         elif event[0] == 'rtcpeerdescription':
             event_list.append('rtcpeerdescription')
             state['rtcpeerdescription'] = event[1]
+        elif event[0] == 'icecandidate':
+            event_list.append('icecandidate')
+            state['icecandidate'].extend(event[1])
         elif event[0] == 'strangerDisconnected':
             event_list.append('strangerDisconnected')
         elif event[0] == 'statusInfo':
             event_list.append('statusInfo')
             serverList.clear()
-            serverList.append(event[1]['servers'])
+            serverList.extend(event[1]['servers'])
             update()
     return event_list
 
@@ -117,8 +123,7 @@ def send_request(req_type):
         data = {
             'id': clientId
         }
-        print(clientId)
-        url = f'{origin}/events'
+        url = f'{origin}/events' 
     elif req_type == 'disconnect':
         data = {
             'id': clientId
@@ -144,17 +149,58 @@ def send_request(req_type):
     return response
 
 
+def fake_load():
+    randId = state['randId']
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36',
+        'cookies': f'randid={randId}; topiclist=%5B%5D; uselikes=1; googtrans=/en/en; googtrans=/en/en; __utma=229593027.67804738.1643210591.1643210591.1643210591.1; __utmc=229593027; __utmz=229593027.1643210591.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmt=1; __utmb=229593027.2.9.1643210591'}
+    params = {}
+    data = {}
+    url = ''
+    s = state['session']
+    
+    url = f'https://www.omegle.com/'
+    s.get(url=url, headers=headers, params=params)
+    
+    url = 'https://www.omegle.com/static/fbsharebtn.png'
+    s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/tweetbtn.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/newchatbtn.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/logomasked.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/tagline.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/standwithhk.jpeg'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/exclamationog.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/textbtn.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/videobtn-enabled.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/favicon.png'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/style.css?105'
+    response = s.get(url=url, headers=headers, params=params)
+    url = 'https://www.omegle.com/static/omegle.js?659'
+    response = s.get(url=url, headers=headers, params=params)
+
+
 if __name__ == '__main__':
 
     proxies = {
-        'https': 'https://49.233.173.151:9080',
+        'https': 'https://1.10.141.220:54620',
     }
 
     state['session'] = requests.Session()
-    state['session'].proxies = proxies
+    #state['session'].proxies = proxies
 
     state["randId"] = new_rand_id()
     randId = state["randId"]
+
+    fake_load()
 
     update()
 
@@ -171,6 +217,8 @@ if __name__ == '__main__':
     update()
 
     while True:
+        state['messages'].clear()
+        state['icecandidate'].clear()
         r = send_request('start')
 
         if len(r) == 0:
@@ -189,16 +237,22 @@ if __name__ == '__main__':
         print(f"clientId: {state['clientId']}")
 
         while True:
+            time.sleep(1)
             r = send_request('events')
 
-            print(r)
             events = events_dispatch(r)
+            print('e: ', events)
+            print('m: ', state['messages'])
+            print(r)
 
             if contains_in_messages('OMEGLE'):
+                time.sleep(1)
                 send_request('disconnect')
                 break
+            if 'rtcpeerdescription' in events:
+                break
 
-        if len(events) == 0 or 'rtcpeerdescription' not in r:
+        if len(events) == 0 or 'rtcpeerdescription' not in events or contains_in_messages('OMEGLE'):
             continue
 
         print("")
@@ -208,15 +262,29 @@ if __name__ == '__main__':
         print("")
         print("")
         print("")
+
+        sdp = state['rtcpeerdescription']["sdp"]
+        type = state['rtcpeerdescription']["type"]
+
+        print('')
+        print('')
+        print('')
+        print('')
+        print('')
+        print('')
+        print('')
+        print(sdp)
         
-        offer = RTCSessionDescription(sdp=state['rtcpeerdescription']["sdp"], type=state['rtcpeerdescription']["type"],)
+        offer = RTCSessionDescription(sdp=sdp, type=type)
         
         state['pc'] = RTCPeerConnection()
         pc = state['pc']
         
         pc.setRemoteDescription(offer)
+
+        pc.addIceCandidate(RTCIceCandidate())
         
-        player = MediaPlayer('v.mp4')
+        player = MediaPlayer('/home/user/Documents/simple_webrtc_python_client/examples/webcam/v.mp4')
         
         for t in pc.getTransceivers():
             print("")
@@ -233,21 +301,22 @@ if __name__ == '__main__':
         
         answer = pc.createAnswer()
         pc.setLocalDescription(answer)
+
+        state['rtclocaldescription'] = f'"sdp": "{pc.localDescription.sdp}", "type": "{pc.localDescription.type}"'
+
+        print(state['rtclocaldescription'])
+
+        time.sleep(1000)
         
-        if 'icecandidate' not in r:
-            while 'icecandidate' not in r:
-                r = send_request('events')
+        # if 'icecandidate' not in r:
+        #     while 'icecandidate' not in r:
+        #         r = send_request('events')
         
-                print(r)
+        #         print(r)
         
-                if len(r) == 0:
-                    send_request('disconnect')
-                    break
+        #         if len(r) == 0:
+        #             send_request('disconnect')
+        #             break
         
-        if 'icecandidate' not in r:
-            continue
-        
-        
-        r = r.text
-        
-        print(r)
+        # if 'icecandidate' not in r:
+        #     continue
