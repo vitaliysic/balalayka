@@ -146,7 +146,7 @@ function randomSpyMode() {
 
 function forceUnmon() {
     if (!IS_MOBILE && !shouldForceUnmonitored) {
-        shouldForceUnmonitored = !0;
+        shouldForceUnmonitored = 1;
         var a = $("intro") || savedIntro;
         if (a) {
             a.getElementById("monitoringnotice") && a.getElementById("monitoringnotice").dispose();
@@ -215,7 +215,8 @@ function updateServerStatus() {
                 gotServerStatus(a)
             },
             onFailure: function() {
-                serverManager.unsetKnownGood(), serverStatusTimeout = setTimeout(updateServerStatus, 1500)
+                serverManager.unsetKnownGood()
+                serverStatusTimeout = setTimeout(updateServerStatus, 1500)
             }
         })).get({
             nocache: Math.random(),
@@ -225,7 +226,17 @@ function updateServerStatus() {
 }
 
 function gotServerStatus(a) {
-    serverStatusTimeout && (clearTimeout(serverStatusTimeout), serverStatusTimeout = null), onlineCountUpdated(a.count), idealSpyMode = a.spyQueueTime - a.spyeeQueueTime > 1 ? "spyee" : "spy", a.timestamp && timeManager.gotAccurateTime(new Date(1e3 * a.timestamp)), a.servers && a.servers.length && serverManager.setServerList(a.servers), antinudeServers = a.antinudeservers || [], screenshotPercent = a.antinudepercent || 0, a.force_unmon && forceUnmon(), firstStatusUpdate = !1, serverStatusTimeout = setTimeout(updateServerStatus, 9e4), a.rtmfp && a.rtmfp.length && (rtmfpServer = a.rtmfp)
+    serverStatusTimeout && (clearTimeout(serverStatusTimeout), serverStatusTimeout = null)
+    onlineCountUpdated(a.count)
+    idealSpyMode = a.spyQueueTime - a.spyeeQueueTime > 1 ? "spyee" : "spy"
+    a.timestamp && timeManager.gotAccurateTime(new Date(1e3 * a.timestamp))
+    a.servers && a.servers.length && serverManager.setServerList(a.servers)
+    antinudeServers = a.antinudeservers
+    screenshotPercent = a.antinudepercent
+    a.force_unmon && forceUnmon()
+    firstStatusUpdate = 0
+    serverStatusTimeout = setTimeout(updateServerStatus, 9e4)
+    a.rtmfp && a.rtmfp.length && (rtmfpServer = a.rtmfp)
 }
 
 function loadTumblrTags(a, b) {
@@ -271,7 +282,8 @@ function processTumblrTags(a, b) {
 }
 
 function setShouldUseLikes(a) {
-    shouldUseLikes = a, Cookie.write("uselikes", a ? "1" : "0", {
+    shouldUseLikes = a
+    Cookie.write("uselikes", a ? "1" : "0", {
         duration: 365,
         domain: document.domain,
         path: "/"
@@ -279,7 +291,8 @@ function setShouldUseLikes(a) {
 }
 
 function setShouldUseEnglish(a) {
-    shouldUseEnglish = a, Cookie.write("useenglish", a ? "1" : "0", {
+    shouldUseEnglish = a
+    Cookie.write("useenglish", a ? "1" : "0", {
         duration: 365,
         domain: document.domain,
         path: "/"
@@ -427,7 +440,7 @@ function makeCollegeEmailForm(a) {
 
 function basicReady() {
     if (!basicReadyCalled) {
-        if (basicReadyCalled = !0, $("feedback")) {
+        if (basicReadyCalled = 1, $("feedback")) {
             var a = $$("#feedback h2");
             "#feedback" == location.hash ? ($("feedback").addClass("expanded"), $("feedbackmessage").focus()) : $("feedback").addClass("collapsed"), a.addEvent("needsclick"), a.addEvent("click", function() {
                 $("feedback").hasClass("expanded") ? ($("feedback").removeClass("expanded"), $("feedback").addClass("collapsed")) : ($("feedback").removeClass("collapsed"), $("feedback").addClass("expanded"), $("feedbackmessage").focus())
@@ -952,7 +965,8 @@ function startSpinner() {
 }
 
 function startNewChat(a, b, c, d, e, f) {
-    f && shouldForceUnmonitored && (e = !0), confirmTerms(e ? 2 : 1, function() {
+    f && shouldForceUnmonitored && (e = !0)
+    confirmTerms(e ? 2 : 1, function() {
         function f() {
             var a = document.activeElement;
             if (!a) return Da.get("disabled");
@@ -2446,9 +2460,15 @@ function startNewChat(a, b, c, d, e, f) {
             var Vb = [],
                 Wb = null;
             Ub.onicecandidate = function(a) {
-                null !== Ub && (null !== Wb && (clearTimeout(Wb), Wb = null), a.candidate && Vb.push(a.candidate), a.candidate && "complete" !== Ub.iceGatheringState ? Wb = setTimeout(function() {
-                    Vb.length && (Ma.sendICECandidates(Vb), Vb = []), Wb = null
-                }, 10) : Vb.length && (Ma.sendICECandidates(Vb), Vb = []))
+                null !== Ub &&
+                (null !== Wb && (clearTimeout(Wb),
+                    Wb = null),
+                a.candidate && Vb.push(a.candidate),
+                    a.candidate && "complete" !== Ub.iceGatheringState ? Wb = setTimeout(function() {
+                    Vb.length && (Ma.sendICECandidates(Vb), Vb = []),
+                        Wb = null
+                }, 10) : Vb.length && (Ma.sendICECandidates(Vb),
+                        Vb = []))
             };
             var Xb = !1,
                 Yb = [],
@@ -2574,7 +2594,7 @@ HTMLCanvasElement.prototype.toBlob || Object.defineProperty(HTMLCanvasElement.pr
 var COMETBackend = new Class({
         Implements: [Options, Events],
         initialize: function(a) {
-            this.setOptions(a), this.clientID = null, this.stopped = !1
+            this.setOptions(a), this.clientID = null, this.stopped = 0
         },
         connect: function(a, b, c, d, e, f, g, h, i, j, k, l, m, n) {
             var o = this;
@@ -2584,8 +2604,11 @@ var COMETBackend = new Class({
         },
         resume: function(a, b) {
             var c = this;
-            c.server = a, c.clientID = b, subdomainManager.subdomainWindow(a, function(a) {
-                c.reqWindow = a, c.getEvents()
+            c.server = a
+            c.clientID = b
+            subdomainManager.subdomainWindow(a, function(a) {
+                c.reqWindow = a
+                c.getEvents()
             })
         },
         gotReqWindow: function() {
@@ -2651,80 +2674,79 @@ var COMETBackend = new Class({
             }
         },
         gotEvents: function(a) {
-            var b = this;
             $each(a, function(a) {
                 switch (a[0]) {
                     case "waiting":
-                        b.fireEvent("waiting");
+                        this.fireEvent("waiting");
                         break;
                     case "connected":
-                        b.fireEvent("strangerConnected", a[1]);
+                        this.fireEvent("strangerConnected", a[1]);
                         break;
                     case "gotMessage":
-                        b.fireEvent("gotMessage", a[1]);
+                        this.fireEvent("gotMessage", a[1]);
                         break;
                     case "strangerDisconnected":
-                        b.stopped = !0, b.fireEvent("strangerDisconnected");
+                        this.stopped = !0, this.fireEvent("strangerDisconnected");
                         break;
                     case "typing":
-                        b.fireEvent("typing");
+                        this.fireEvent("typing");
                         break;
                     case "stoppedTyping":
-                        b.fireEvent("stoppedTyping");
+                        this.fireEvent("stoppedTyping");
                         break;
                     case "recaptchaRequired":
-                        b.fireEvent("recaptchaRequired", a[1]);
+                        this.fireEvent("recaptchaRequired", a[1]);
                         break;
                     case "recaptchaRejected":
-                        b.fireEvent("recaptchaRejected", a[1]);
+                        this.fireEvent("recaptchaRejected", a[1]);
                         break;
                     case "count":
                         onlineCountUpdated(a[1]);
                         break;
                     case "spyMessage":
-                        b.fireEvent("spyMessage", [a[1], a[2]]);
+                        this.fireEvent("spyMessage", [a[1], a[2]]);
                         break;
                     case "spyTyping":
-                        b.fireEvent("spyTyping", a[1]);
+                        this.fireEvent("spyTyping", a[1]);
                         break;
                     case "spyStoppedTyping":
-                        b.fireEvent("spyStoppedTyping", a[1]);
+                        this.fireEvent("spyStoppedTyping", a[1]);
                         break;
                     case "spyDisconnected":
-                        b.stopped = !0, b.fireEvent("spyDisconnected", a[1]);
+                        this.stopped = !0, this.fireEvent("spyDisconnected", a[1]);
                         break;
                     case "question":
-                        b.fireEvent("question", a[1]);
+                        this.fireEvent("question", a[1]);
                         break;
                     case "serverMessage":
-                        b.fireEvent("serverMessage", a[1]);
+                        this.fireEvent("serverMessage", a[1]);
                         break;
                     case "error":
-                        b.stopped = !0, b.fireEvent("error", a[1]);
+                        this.stopped = !0, this.fireEvent("error", a[1]);
                         break;
                     case "commonLikes":
-                        b.fireEvent("commonLikes", [a[1]]);
+                        this.fireEvent("commonLikes", [a[1]]);
                         break;
                     case "antinudeBanned":
-                        b.stopped = !0, b.fireEvent("antinudeBanned", [a[1]]);
+                        this.stopped = !0, this.fireEvent("antinudeBanned", [a[1]]);
                         break;
                     case "statusInfo":
                         gotServerStatus(a[1]);
                         break;
                     case "identDigests":
-                        b.fireEvent("identDigests", [a[1]]);
+                        this.fireEvent("identDigests", [a[1]]);
                         break;
                     case "icecandidate":
-                        b.fireEvent("icecandidate", [a[1]]);
+                        this.fireEvent("icecandidate", [a[1]]);
                         break;
                     case "rtccall":
-                        b.fireEvent("rtccall");
+                        this.fireEvent("rtccall");
                         break;
                     case "rtcpeerdescription":
-                        b.fireEvent("rtcpeerdescription", [a[1]]);
+                        this.fireEvent("rtcpeerdescription", [a[1]]);
                         break;
                     case "partnerCollege":
-                        b.fireEvent("partnerCollege", [a[1]])
+                        this.fireEvent("partnerCollege", [a[1]])
                 }
             })
         },
@@ -2761,12 +2783,11 @@ var COMETBackend = new Class({
         },
         sendPOST: function(a, b, c) {
             b = b || {}, c = c || 0, "object" == typeof b && (b.id = this.clientID);
-            var d = this;
             killHeaders(new this.reqWindow.Request({
                 url: subdomainManager.fixUrl(this.server, a),
                 data: b,
                 onFailure: function() {
-                    3 > c && d.sendPOST(a, b, c + 1)
+                    3 > c && this.sendPOST(a, b, c + 1)
                 }
             })).send()
         }

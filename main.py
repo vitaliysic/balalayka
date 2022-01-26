@@ -1,10 +1,10 @@
 import requests
 import random
 import math
+import time
 
-from aiortc import RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaPlayer, MediaRelay
-
+# from aiortc import RTCPeerConnection, RTCSessionDescription
+# from aiortc.contrib.media import MediaPlayer, MediaRelay
 
 domain = 'omegle.com'
 serverList = ["front1", "front2", "front3", "front4", "front5", "front6", "front7", "front8", "front9", "front10",
@@ -28,139 +28,218 @@ def nocache():
 
 
 def get_origin():
-    return f'https://{serverList[random.randint(0, len(serverList) - 1)]}.{domain}'
+    subdomain = serverList[random.randint(0, len(serverList) - 1)]
+    state['subdomain'] = subdomain
+    return f'https://{subdomain}.{domain}'
 
 
-def event_dispatch(events):
-    for event in events:
-        exit()
+state = {
+    'session': None,
+    'subdomain': '',
+    'origin': '',
+    'randId': '',
+    'clientId': '',
+    'rtcpeerdescription': '',
+    'messages': [],
+    'pc': None
+}
 
 
-if __name__ == '__main__':
+def update():
+    if state['subdomain'] not in serverList:
+        state["origin"] = get_origin()
 
-    proxies = {
-        'https': 'https://45.167.253.129:999',
-    }
 
-    s = requests.Session()
-    s.proxies = proxies
-    
-    origin = get_origin()
+def events_dispatch(new_events):
+    if new_events is None:
+        return []
+    event_list = []
+    for event in new_events:
+        if event[0] == 'waiting':
+            event_list.append('waiting')
+        elif event[0] == 'gotMessage':
+            event_list.append('gotMessage')
+            state['messages'].append(event[1])
+        elif event[0] == 'rtcpeerdescription':
+            event_list.append('rtcpeerdescription')
+            state['rtcpeerdescription'] = event[1]
+        elif event[0] == 'strangerDisconnected':
+            event_list.append('strangerDisconnected')
+        elif event[0] == '':
+            event_list.append('statusInfo')
+            serverList.clear()
+            serverList.append(events[1]['servers'])
+            update()
+    return event_list
 
+
+def contains_in_messages(phrase):
+    for message in state['messages']:
+        if phrase in message:
+            return True
+    return False
+
+
+def send_request(req_type):
+    origin = state['origin']
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                       '(KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36'}
-
-    randId = new_rand_id()
-
-    params = {
-        'nocache': nocache(),
-        'randid': randId
-    }
-    url = f'{origin}/status'
-    r = s.get(url=url, headers=headers, params=params)
-    r = r.json()
-
-    if len(r) == 0:
-        print('status fail')
-        exit()
-
-    serverList = r['servers']
-    origin = get_origin()
-
-    while True:
+    params = {}
+    data = {}
+    url = ''
+    s = state['session']
+    response = {}
+    if req_type == 'status':
+        params = {
+            'nocache': nocache(),
+            'randid': randId
+        }
+        url = f'{origin}/status'
+        response = s.get(url=url, headers=headers, params=params)
+        response = response.json()
+        return response
+    elif req_type == 'start':
         params = {
             'caps': 'recaptha2,t',
             'firstevents': '1',
             'spid': '',
-            'randid': randId,
+            'randid': state['randId'],
             'group': 'unmon',
             'lang': 'en',
             'camera': 'Camera',
             'webrtc': '1'
         }
         url = f'{origin}/start'
-        r = s.post(url=url, headers=headers, params=params)
-        r = r.json()
+    elif req_type == 'events':
+        data = {
+            'id': clientId
+        }
+        url = f'{origin}/events'
+    elif req_type == 'disconnect':
+        data = {
+            'id': clientId
+        }
+        url = f'{origin}/disconnect'
+        response = s.post(url=url, headers=headers, params=params, data=data)
+        return response.text
+    elif req_type == 'rtcpeerdescription':
+        url = f'{origin}/rtcpeerdescription'
+        pc = state['pc']
+        data = {
+            'desc': '{"type":"' + pc.localDescription.type + ',"sdp":"' + pc.localDescription.sdp + '"}',
+            'id': clientId
+        }
+        response = s.post(url=url, headers=headers, params=params, data=data)
+        return response.text
+    elif req_type == 'icecandidate':
+        pass
+
+    response = s.post(url=url, headers=headers, params=params, data=data)
+    response = response.json()
+
+    return response
+
+
+if __name__ == '__main__':
+
+    proxies = {
+        'https': 'https://103.153.190.78:8081',
+    }
+
+    state['session'] = requests.Session()
+    # state['session'].proxies = proxies
+
+    state["randId"] = new_rand_id()
+    randId = state["randId"]
+
+    update()
+
+    print(f"origin: {state['origin']}\nrandId: {randId}")
+
+    r = send_request('status')
+
+    if len(r) == 0:
+        print('status fail')
+        exit()
+
+    print(f"Online: {r['count']}")
+    serverList = r['servers']
+    update()
+
+    while True:
+        r = send_request('start')
 
         if len(r) == 0:
             print('start fail')
             exit()
 
-        clientId = r['clientID']
+        state['clientId'] = r['clientID']
+        clientId = state['clientId']
 
-        data = {
-            'id': clientId
-        }
-        url = f'{origin}/events'
+        print(f"clientId: {state['clientId']}")
 
         while True:
-            r = s.post(url=url, headers=headers, data=data)
-            r = r.json()
+            r = send_request('events')
 
             print(r)
+            events = events_dispatch(r)
 
-            if r is None or len(r) > 0 and r[0][0] == 'gotMessage' and 'OMEGLE' in r[0][1]:
-                url = f'{origin}/disconnect'
-                s.post(url=url, headers=headers, data=data)
+            if contains_in_messages('OMEGLE'):
+                send_request('disconnect')
                 break
-            elif 
-        
-        if r is None or not 'rtcpeerdescription' in r:
+
+        if len(events) == 0 or 'rtcpeerdescription' not in r:
             continue
 
-        index = r.index('rtcpeerdescription')
-
-        offer = RTCSessionDescription(sdp=r[index]["sdp"], type=r[index]["type"])
-
-        pc = RTCPeerConnection()
-        
-        pc.setRemoteDescription(offer)
-
-        player = MediaPlayer('v.mp4')
-
-        for t in pc.getTransceivers():
-            print("")
-            print("")
-            print("")
-            print(t)
-            print("")
-            print("")
-            print("")
-            if t.kind == "audio":
-                pc.addTrack(player.audio)
-            elif t.kind == "video":
-                pc.addTrack(player.video)
-        
-        answer = pc.createAnswer()
-        pc.setLocalDescription(answer)
-
-        if not 'icecandidate' in r:
-            while not 'icecandidate' in r:
-                url = f'{origin}/events'
-                r = s.post(url=url, headers=headers, data=data)
-                r = r.json()
-                print(r)
-
-                if r is None:
-                    url = f'{origin}/disconnect'
-                    s.post(url=url, headers=headers, data=data)
-                    break
-
-        if not 'icecandidate' in r:
-            continue
-
-        url = f'{origin}/rtcpeerdescription'
-        data = {
-            'desc': '{"type":"' + pc.localDescription.type + ',"sdp":"' + pc.localDescription.sdp + '"}',
-            'id': randId
-        }
-        r = s.post(url=url, headers=headers, data=data)
-        r = r.text
-
-        print(r)
-
-        url = f'{origin}/icecandidate'
-
-        
-        
+        print("")
+        print("")
+        print("")
+        print(f"{state['rtcpeerdescription']}")
+        print("")
+        print("")
+        print("")
+        time.sleep(1000)
+        #
+        # offer = RTCSessionDescription(sdp=r[index]["sdp"], type=r[index]["type"])
+        #
+        # state['pc'] = RTCPeerConnection()
+        # pc = state['pc']
+        #
+        # pc.setRemoteDescription(offer)
+        #
+        # player = MediaPlayer('v.mp4')
+        #
+        # for t in pc.getTransceivers():
+        #     print("")
+        #     print("")
+        #     print("")
+        #     print(t)
+        #     print("")
+        #     print("")
+        #     print("")
+        #     if t.kind == "audio":
+        #         pc.addTrack(player.audio)
+        #     elif t.kind == "video":
+        #         pc.addTrack(player.video)
+        #
+        # answer = pc.createAnswer()
+        # pc.setLocalDescription(answer)
+        #
+        # if 'icecandidate' not in r:
+        #     while 'icecandidate' not in r:
+        #         r = send_request('events')
+        #
+        #         print(r)
+        #
+        #         if len(r) == 0:
+        #             send_request('disconnect')
+        #             break
+        #
+        # if 'icecandidate' not in r:
+        #     continue
+        #
+        #
+        # r = r.text
+        #
+        # print(r)
