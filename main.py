@@ -1,10 +1,9 @@
 import requests
 import random
 import math
-import time
 
-# from aiortc import RTCPeerConnection, RTCSessionDescription
-# from aiortc.contrib.media import MediaPlayer, MediaRelay
+from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc.contrib.media import MediaPlayer, MediaRelay
 
 domain = 'omegle.com'
 serverList = ["front1", "front2", "front3", "front4", "front5", "front6", "front7", "front8", "front9", "front10",
@@ -60,15 +59,17 @@ def events_dispatch(new_events):
         elif event[0] == 'gotMessage':
             event_list.append('gotMessage')
             state['messages'].append(event[1])
+        elif event[0] == 'error':
+            event_list.append('error')
         elif event[0] == 'rtcpeerdescription':
             event_list.append('rtcpeerdescription')
             state['rtcpeerdescription'] = event[1]
         elif event[0] == 'strangerDisconnected':
             event_list.append('strangerDisconnected')
-        elif event[0] == '':
+        elif event[0] == 'statusInfo':
             event_list.append('statusInfo')
             serverList.clear()
-            serverList.append(events[1]['servers'])
+            serverList.append(event[1]['servers'])
             update()
     return event_list
 
@@ -90,6 +91,7 @@ def send_request(req_type):
     url = ''
     s = state['session']
     response = {}
+    clientId = state['clientId']
     if req_type == 'status':
         params = {
             'nocache': nocache(),
@@ -107,7 +109,7 @@ def send_request(req_type):
             'randid': state['randId'],
             'group': 'unmon',
             'lang': 'en',
-            'camera': 'Camera',
+            'camera': 'Camera HD',
             'webrtc': '1'
         }
         url = f'{origin}/start'
@@ -115,6 +117,7 @@ def send_request(req_type):
         data = {
             'id': clientId
         }
+        print(clientId)
         url = f'{origin}/events'
     elif req_type == 'disconnect':
         data = {
@@ -144,11 +147,11 @@ def send_request(req_type):
 if __name__ == '__main__':
 
     proxies = {
-        'https': 'https://103.153.190.78:8081',
+        'https': 'https://49.233.173.151:9080',
     }
 
     state['session'] = requests.Session()
-    # state['session'].proxies = proxies
+    state['session'].proxies = proxies
 
     state["randId"] = new_rand_id()
     randId = state["randId"]
@@ -173,6 +176,12 @@ if __name__ == '__main__':
         if len(r) == 0:
             print('start fail')
             exit()
+
+        if 'events' in r:
+            events = events_dispatch(r['events'])
+            if 'error' in events:
+                print('Banned')
+                exit()
 
         state['clientId'] = r['clientID']
         clientId = state['clientId']
@@ -199,47 +208,46 @@ if __name__ == '__main__':
         print("")
         print("")
         print("")
-        time.sleep(1000)
-        #
-        # offer = RTCSessionDescription(sdp=r[index]["sdp"], type=r[index]["type"])
-        #
-        # state['pc'] = RTCPeerConnection()
-        # pc = state['pc']
-        #
-        # pc.setRemoteDescription(offer)
-        #
-        # player = MediaPlayer('v.mp4')
-        #
-        # for t in pc.getTransceivers():
-        #     print("")
-        #     print("")
-        #     print("")
-        #     print(t)
-        #     print("")
-        #     print("")
-        #     print("")
-        #     if t.kind == "audio":
-        #         pc.addTrack(player.audio)
-        #     elif t.kind == "video":
-        #         pc.addTrack(player.video)
-        #
-        # answer = pc.createAnswer()
-        # pc.setLocalDescription(answer)
-        #
-        # if 'icecandidate' not in r:
-        #     while 'icecandidate' not in r:
-        #         r = send_request('events')
-        #
-        #         print(r)
-        #
-        #         if len(r) == 0:
-        #             send_request('disconnect')
-        #             break
-        #
-        # if 'icecandidate' not in r:
-        #     continue
-        #
-        #
-        # r = r.text
-        #
-        # print(r)
+        
+        offer = RTCSessionDescription(sdp=state['rtcpeerdescription']["sdp"], type=state['rtcpeerdescription']["type"],)
+        
+        state['pc'] = RTCPeerConnection()
+        pc = state['pc']
+        
+        pc.setRemoteDescription(offer)
+        
+        player = MediaPlayer('v.mp4')
+        
+        for t in pc.getTransceivers():
+            print("")
+            print("")
+            print("")
+            print(t)
+            print("")
+            print("")
+            print("")
+            if t.kind == "audio":
+                pc.addTrack(player.audio)
+            elif t.kind == "video":
+                pc.addTrack(player.video)
+        
+        answer = pc.createAnswer()
+        pc.setLocalDescription(answer)
+        
+        if 'icecandidate' not in r:
+            while 'icecandidate' not in r:
+                r = send_request('events')
+        
+                print(r)
+        
+                if len(r) == 0:
+                    send_request('disconnect')
+                    break
+        
+        if 'icecandidate' not in r:
+            continue
+        
+        
+        r = r.text
+        
+        print(r)
